@@ -434,6 +434,16 @@ func TestBestestHeat(t *testing.T) {
 	t.Logf("%d/%d:(%f) %v", idx, len(heated), dist, h)
 }
 
+func TestClosestAllocs(t *testing.T) {
+	heated := testHeat(t)
+	pt := GeoPoint(AlaLat, AlaLon)
+	const within = 10.0
+	allocs := testing.AllocsPerRun(100, func() {
+		Closest(heated, pt, within)
+	})
+	t.Logf("%.0f", allocs)
+}
+
 func TestNearest(t *testing.T) {
 	pt := GeoPoint(AlaLat, AlaLon)
 	info, err := Nearest(heatFile, pt, true)

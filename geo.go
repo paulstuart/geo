@@ -55,7 +55,6 @@ func init() {
 const Radian = math.Pi / 180.0
 
 func deg2rad(d float64) float64 {
-	//	return (d * math.Pi) / 180.0
 	return d * Radian
 }
 
@@ -296,11 +295,11 @@ func Closest(g GeoPoints, pt Point, deltaKm float64) (int, float64) {
 		counter++
 		this = g.IndexPoint(i)
 		if this.Lat < minLat {
-			debugf("%v exceeded minimum possible lat: %v", this, minLat)
+			//debugf("%v exceeded minimum possible lat: %v", this, minLat)
 			break
 		}
 		if lonOutside(this.Lon) {
-			debugf("below lon outside: %v", this)
+			//debugf("below lon outside: %v", this)
 			continue
 		}
 		if dist := pt.Approximately(this); dist < closest {
@@ -308,7 +307,7 @@ func Closest(g GeoPoints, pt Point, deltaKm float64) (int, float64) {
 			best = i
 			minLat = pt.Lat - GeoType(closest/DegreeToKilometer)
 			deltaLon = GeoType(closest / lonKmPerDegree)
-			debugf("(%d) MINLAT: %f", counter, minLat)
+			//debugf("(%d) MINLAT: %f", counter, minLat)
 		}
 	}
 	/*
@@ -327,11 +326,11 @@ func Closest(g GeoPoints, pt Point, deltaKm float64) (int, float64) {
 		counter++
 		this = g.IndexPoint(i)
 		if this.Lat > maxLat {
-			debugf("%v exceeds max lat of %v", this, maxLat)
+			//debugf("%v exceeds max lat of %v", this, maxLat)
 			break
 		}
 		if lonOutside(this.Lon) {
-			debugf("above lon outside: %v", this)
+			//debugf("above lon outside: %v", this)
 			continue
 		}
 		if dist := this.Approximately(pt); dist < closest {
@@ -340,7 +339,7 @@ func Closest(g GeoPoints, pt Point, deltaKm float64) (int, float64) {
 			maxLat = pt.Lat + GeoType(dist/DegreeToKilometer)
 		}
 	}
-	debugf("Examined %d records", counter)
+	//debugf("Examined %d records", counter)
 
 	return best, closest
 }
