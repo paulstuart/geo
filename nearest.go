@@ -90,20 +90,10 @@ func LoadLines(filename string, fn func(string) error) error {
 		if err != nil {
 			return err
 		}
-		// TODO: does this need to get closed before f?
 		defer gzr.Close()
 		r = gzr
 	}
 
-	/*
-		if gzipped {
-			gzr, err := gzip.NewReader(f)
-			if err != nil {
-				return fmt.Errorf("gunzip fail for %q -- %w", filename, err)
-			}
-			r = gzr
-		}
-	*/
 	scan := bufio.NewScanner(r)
 	for scan.Scan() {
 		line := scan.Text()

@@ -19,21 +19,10 @@ import (
 
 const (
 	// handy for me
-	/*
-		AlaLat = 37.7799
-		AlaLon = -122.2822
-	*/
 	AlaLat, AlaLon = 37.7703358, -122.2569864
-	/*
-		AlaLat = 37.7690679
-		AlaLon = -122.2592744
-	*/
-	AlaGeo = 6001 // GeoID of Alameda
+	AlaGeo         = 6001 // GeoID of Alameda
 
-	// 37.7690679,-122.2592744
-	// 37.78978486773513, -122.39617851945805
 	PortLat, PortLon = 45.557966, -122.867614 // 45.5623746, -122.8675477
-	// LAT=45.5623746 LON=-122.8675477
 
 	// Houston City Hall
 	HouLat, HouLon = 29.6223432, -95.5079226 //29.6223432, -95.5079226

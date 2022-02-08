@@ -7,7 +7,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	//geo "github.com/kellydunn/golang-geo"
 )
 
 var (
