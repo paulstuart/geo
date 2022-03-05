@@ -69,6 +69,13 @@ func Mmap(filename string) (*MFile, error) {
 	return &MFile{b}, err
 }
 
+func (m *MFile) ReadAt(p []byte, i int64) (int, error) {
+	if i > int64(len(m.B)) {
+		return 0, errors.New("index exceeds file size")
+	}
+	return copy(p, m.B[i:]), nil
+}
+
 func (m *MFile) NewIter(d Decoder) *Iter {
 	return &Iter{
 		m: m,
