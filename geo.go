@@ -564,3 +564,22 @@ func Bestest(g GeoPoints, pt Point, deltaKm float64) (int, float64) {
 
 	return best, closest
 }
+
+func ToGeoType(value interface{}) (GeoType, error) {
+	switch value := value.(type) {
+	case float32:
+		return GeoType(value), nil
+	case float64:
+		return GeoType(value), nil
+	case int:
+		return GeoType(value), nil
+	case int32:
+		return GeoType(value), nil
+	case int64:
+		return GeoType(value), nil
+	case string:
+		f, err := strconv.ParseFloat(value, 32)
+		return GeoType(f), err
+	}
+	return 0, fmt.Errorf("%v is un unsupported type: %T", value, value)
+}
