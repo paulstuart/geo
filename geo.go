@@ -1,6 +1,7 @@
 package geo
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
@@ -582,4 +583,16 @@ func ToGeoType(value interface{}) (GeoType, error) {
 		return GeoType(f), err
 	}
 	return 0, fmt.Errorf("%v is un unsupported type: %T", value, value)
+}
+
+func DecodePoint(buf []byte) Point {
+	Lat := GeoType(math.Float32frombits(binary.LittleEndian.Uint32(buf)))
+	Lon := GeoType(math.Float32frombits(binary.LittleEndian.Uint32(buf[4:])))
+	return Point{Lat, Lon}
+}
+
+func DecodePair(buf []byte) Pair {
+	Lat := math.Float64frombits(binary.LittleEndian.Uint64(buf))
+	Lon := math.Float64frombits(binary.LittleEndian.Uint64(buf[8:]))
+	return Pair{Lat, Lon}
 }
