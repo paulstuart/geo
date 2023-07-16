@@ -15,8 +15,7 @@ type Decoder interface {
 	Size() int // size of struct
 	Point() Point
 	Less(Point) bool
-	// Between(min, max GeoType) bool // Longitude between
-	JSON(w io.Writer)
+	JSON(w io.Writer) error
 }
 
 type MFile struct {
