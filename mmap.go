@@ -15,7 +15,7 @@ type Decoder interface {
 	Size() int // size of struct
 	Point() Point
 	Less(Point) bool
-	Between(min, max GeoType) bool // Longitude between
+	// Between(min, max GeoType) bool // Longitude between
 	JSON(w io.Writer)
 }
 
@@ -109,7 +109,8 @@ func (m *Iter) Ranger(from, to Point, fn func(interface{}), ctr Container) error
 		if !m.Less(to) {
 			break
 		}
-		if m.d.Between(from.Lon, to.Lon) {
+		pt := m.d.Point()
+		if between(pt.Lon, from.Lon, to.Lon) {
 			if ctr == nil || ctr.ContainsPoint(m.d.Point()) {
 				fn(m.d)
 			}
