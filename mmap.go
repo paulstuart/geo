@@ -10,32 +10,32 @@ import (
 
 var ErrNotFound = errors.New("not found")
 
-type Decoder interface {
+type Decoder[T Float] interface {
 	Decode([]byte) error
 	Size() int // size of struct
-	Point() Point
-	Less(Point) bool
+	Point() Point[T]
+	Less(Point[T]) bool
 	JSON(w io.Writer) error
 }
 
-type MFile struct {
+type MFile[T Float] struct {
 	B []byte
 }
 
-type Iter struct {
-	m *MFile
-	d Decoder
+type Iter[T Float] struct {
+	m *MFile[T]
+	d Decoder[T]
 }
 
-func (m *MFile) Close() error {
+func (m *MFile[T]) Close() error {
 	return mmap.Close(m.B)
 }
 
-func (m *Iter) Len() int {
+func (m *Iter[T]) Len() int {
 	return len(m.m.B) / m.d.Size()
 }
 
-func (m *Iter) IndexPoint(i int) Point {
+func (m *Iter[T]) IndexPoint(i int) Point[T] {
 	off := m.d.Size() * i
 	end := off + m.d.Size()
 	if err := m.d.Decode(m.m.B[off:end]); err != nil {
@@ -44,7 +44,7 @@ func (m *Iter) IndexPoint(i int) Point {
 	return m.d.Point()
 }
 
-func (m *Iter) Load(i int) {
+func (m *Iter[T]) Load(i int) {
 	off := m.d.Size() * i
 	end := off + m.d.Size()
 	if err := m.d.Decode(m.m.B[off:end]); err != nil {
@@ -52,37 +52,37 @@ func (m *Iter) Load(i int) {
 	}
 }
 
-func (m *Iter) Less(pt Point) bool {
+func (m *Iter[T]) Less(pt Point[T]) bool {
 	return m.d.Less(pt)
 }
 
-func (m *Iter) JSON(w io.Writer) {
+func (m *Iter[T]) JSON(w io.Writer) {
 	m.d.JSON(w)
 }
 
-func Mmap(filename string) (*MFile, error) {
+func Mmap[T Float](filename string) (*MFile[T], error) {
 	b, err := mmap.Open(filename, false)
 	if err != nil {
 		return nil, err
 	}
-	return &MFile{b}, err
+	return &MFile[T]{b}, err
 }
 
-func (m *MFile) ReadAt(p []byte, i int64) (int, error) {
+func (m *MFile[T]) ReadAt(p []byte, i int64) (int, error) {
 	if i > int64(len(m.B)) {
 		return 0, errors.New("index exceeds file size")
 	}
 	return copy(p, m.B[i:]), nil
 }
 
-func (m *MFile) NewIter(d Decoder) *Iter {
-	return &Iter{
+func (m *MFile[T]) NewIter(d Decoder[T]) *Iter[T] {
+	return &Iter[T]{
 		m: m,
 		d: d,
 	}
 }
 
-func (m *Iter) Get(i int) interface{} {
+func (m *Iter[T]) Get(i int) interface{} {
 	off := m.d.Size() * i
 	end := off + m.d.Size()
 	if err := m.d.Decode(m.m.B[off:end]); err != nil {
@@ -91,11 +91,11 @@ func (m *Iter) Get(i int) interface{} {
 	return m.d
 }
 
-type Container interface {
-	ContainsPoint(Point) bool
+type Container[T Float] interface {
+	ContainsPoint(Point[T]) bool
 }
 
-func (m *Iter) Ranger(from, to Point, fn func(interface{}), ctr Container) error {
+func (m *Iter[T]) Ranger(from, to Point[T], fn func(interface{}), ctr Container[T]) error {
 	size := m.Len()
 	idx := sort.Search(size, func(i int) bool {
 		return from.Less(m.IndexPoint(i))

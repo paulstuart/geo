@@ -8,14 +8,18 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"golang.org/x/exp/constraints"
 )
 
 var (
 	ErrInvalidCoordinates = errors.New("invalid coordinates")
 )
 
-type Pair [2]float64
-type Rect [2]Pair
+type Float = constraints.Float
+
+type Pair[T Float] [2]T
+type Rect[T Float] [2]Pair[T]
 
 var (
 	//alameda = Pair{AlaLat, AlaLon}
@@ -29,11 +33,11 @@ var (
 // Virtually all geo data is "close enough" using this,
 // and for data that heavily comprises these points,
 // one can reduce memory footprint by one half (for points)
-type GeoType float32
+// type GeoType[T Float] T
 
 // GeoPoints provides abstraction for slices of data with coordinates
-type GeoPoints interface {
-	IndexPoint(int) Point
+type GeoPoints[T Float] interface {
+	IndexPoint(int) Point[T]
 	Len() int
 }
 
@@ -62,9 +66,9 @@ func deg2rad(d float64) float64 {
 // at the given latitude.
 //
 // Accuracy is with 1% under 80 degrees, which is good enough for most work
-func LookupLonKmPerLat(lat float64) float64 {
+func LookupLonKmPerLat[T Float](lat T) T {
 	idx := int(lat * 10)
-	return lonKmLookup[idx]
+	return T(lonKmLookup[idx])
 }
 
 // LonKilos returns the kilometers per degree longitude at the given latitude
@@ -74,8 +78,8 @@ func LonKilos(lat float64) float64 {
 
 // LongitudeKilometerDegrees converts the distance given
 // in kilometers at that latitude to degrees
-func LongitudeKilometerDegrees(lat, kilometers float64) float64 {
-	return kilometers / LonKilos(lat)
+func LongitudeKilometerDegrees[T Float](lat T, kilometers T) T {
+	return T(kilometers / T(LonKilos(float64(lat))))
 }
 
 // LongitudeKilometers returns the distance of the degrees lon, at latitude lat
@@ -84,31 +88,33 @@ func LongitudeKilometers(lat, lon float64) float64 {
 }
 
 // Expand returns the a box with a radius in kM for
-func Expand(lat, lon, radiusKM float64) Rect {
+func Expand[T Float](lat, lon T, radiusKM T) Rect[T] {
 	latx := radiusKM / lon
-	lonx := LongitudeKilometerDegrees(lat, radiusKM)
-	return Rect{
-		Pair{lat - latx, lon - lonx},
-		Pair{lat + latx, lon + lonx},
+	lonx := LongitudeKilometerDegrees[T](lat, radiusKM)
+	return Rect[T]{
+		Pair[T]{lat - latx, lon - lonx},
+		Pair[T]{lat + latx, lon + lonx},
 	}
 }
 
 // Distance returns the distance in kM between 2 geographic points
 // It uses the Haversine formula for spherical calculations
-func Distance(lat1, lon1, lat2, lon2 float64) float64 {
-	dlat1 := deg2rad(lat1)
-	dlon1 := deg2rad(lon1)
-	dlat2 := deg2rad(lat2)
-	dlon2 := deg2rad(lon2)
+func Distance[T Float](lat1, lon1, lat2, lon2 T) T {
+	dlat1 := deg2rad(float64(lat1))
+	dlon1 := deg2rad(float64(lon1))
+	dlat2 := deg2rad(float64(lat2))
+	dlon2 := deg2rad(float64(lon2))
 
-	return math.Acos(math.Sin(dlat1)*math.Sin(dlat2)+math.Cos(dlat1)*math.Cos(dlat2)*math.Cos(dlon2-dlon1)) * EarthRadiusInKM
+	v := math.Acos(math.Sin(dlat1)*math.Sin(dlat2)+math.Cos(dlat1)*math.Cos(dlat2)*math.Cos(dlon2-dlon1)) * EarthRadiusInKM
+	return T(v)
 }
+
 func Distance32(lat1, lon1, lat2, lon2 float32) float64 {
 	return Distance(float64(lat1), float64(lon1), float64(lat2), float64(lon2))
 }
 
-func DistanceGeoType(lat1, lon1, lat2, lon2 GeoType) float64 {
-	return Distance(float64(lat1), float64(lon1), float64(lat2), float64(lon2))
+func DistanceGeoType[T Float](lat1, lon1, lat2, lon2 T) T {
+	return Distance[T](lat1, lon1, lat2, lon2)
 }
 
 // ApproximateDistanceGeo returns the approximate distance between 2 points
@@ -128,16 +134,17 @@ func ApproximateDistance(lat1, lon1, lat2, lon2 float64) float64 {
 // It uses the pythagarean distance calc which is meant for 2d operations
 // but is "good enough" for shorter distances (which we primarily care about)
 // It is about 7 times faster than the "proper way"
-func ApproximateDistanceGeo(lat1, lon1, lat2, lon2 GeoType) float64 {
+func ApproximateDistanceGeo[T Float](lat1, lon1, lat2, lon2 T) T {
 	//	lonDegreeKm := LookupLonKmPerLatInt(round(float64(lat2)))
 	lonDegreeKm := LookupLonKmPerLat(float64(lat1)) //LookupLonKmPerLatInt(int(lat2))
 	a := float64(lat2-lat1) * DegreeToKilometer
 	b := float64(lon2-lon1) * lonDegreeKm
-	return math.Sqrt(math.Pow(a, 2) + math.Pow(b, 2))
+	return T(math.Sqrt(math.Pow(a, 2) + math.Pow(b, 2)))
 }
 
-func GeoPoint(lat, lon float64) Point {
-	return Point{GeoType(lat), GeoType(lon)}
+func GeoPoint[T Float](lat, lon float64) Point[T] {
+	// return Point[T]{GeoType(lat), GeoType(lon)}
+	return Point[T]{T(lat), T(lon)}
 }
 
 func AreaInKm(lat1, lon1, lat2, lon2 float64) float64 {
@@ -158,7 +165,7 @@ func AreaInMiles(lat1, lon1, lat2, lon2 float64) float64 {
 	return SquareKmInMiles(AreaInKm(lat1, lon1, lat2, lon2))
 }
 
-func Coords(query string) ([]GeoType, error) {
+func Coords[T Float](query string) ([]T, error) {
 	parts := strings.Split(query, ",")
 	if len(parts) != 4 {
 		parts = strings.Split(query, "/")
@@ -166,7 +173,7 @@ func Coords(query string) ([]GeoType, error) {
 			return nil, ErrInvalidCoordinates
 		}
 	}
-	coords, err := geos(parts...)
+	coords, err := geos[T](parts...)
 	if err != nil {
 		return nil, fmt.Errorf("parse failure (%v): %w", err, ErrInvalidCoordinates)
 	}
@@ -179,12 +186,12 @@ func Coords(query string) ([]GeoType, error) {
 	return coords, nil
 }
 
-type Point struct {
-	Lat, Lon GeoType
+type Point[T Float] struct {
+	Lat, Lon T
 }
 
 // Less returns true if it is less than the given point
-func (p Point) Less(x Point) bool {
+func (p Point[T]) Less(x Point[T]) bool {
 	if p.Lat < x.Lat {
 		return true
 	} else if p.Lat > x.Lat {
@@ -196,27 +203,27 @@ func (p Point) Less(x Point) bool {
 }
 
 // Label returns a consistent string representation of the coordinates
-func (p Point) Label() string {
+func (p Point[T]) Label() string {
 	return fmt.Sprintf("%010.5f_%010.5f", p.Lat, p.Lon)
 }
 
-func (p Point) Distance(x Point) float64 {
-	return DistanceGeoType(p.Lat, p.Lon, x.Lat, x.Lon)
+func (p Point[T]) Distance(x Point[T]) T {
+	return DistanceGeoType[T](p.Lat, p.Lon, x.Lat, x.Lon)
 }
 
-func (p Point) Approximately(x Point) float64 {
+func (p Point[T]) Approximately(x Point[T]) T {
 	return ApproximateDistanceGeo(p.Lat, p.Lon, x.Lat, x.Lon)
 }
 
 // AreaInRange64 is like AreaInRange but using float64
-func AreaInRange64(pt Pair, distance float64) Rect {
+func AreaInRange64[T Float](pt Pair[T], distance T) Rect[T] {
 	lat := pt[0]
 	lon := pt[1]
 	deltaLat := (distance / DegreeToKilometer)
-	deltaLon := (LongitudeKilometerDegrees(float64(lat), distance))
-	min := Pair{lat - deltaLat, lon - deltaLon}
-	max := Pair{lat + deltaLat, lon + deltaLon}
-	return Rect{min, max}
+	deltaLon := (LongitudeKilometerDegrees(T(lat), distance))
+	min := Pair[T]{lat - deltaLat, lon - deltaLon}
+	max := Pair[T]{lat + deltaLat, lon + deltaLon}
+	return Rect[T]{min, max}
 }
 
 // Closest searches for a matching point within the distance (in Km)
@@ -225,11 +232,12 @@ func AreaInRange64(pt Pair, distance float64) Rect {
 // If nothing is found, it returns the Len() of the points list and -1 distance
 //
 // NOTE: this is an adaptation of Bestest, but distances are approximated to
-//       minimize computational load
+//
+//	minimize computational load
 //
 // TODO: the len return is in line w/ Go sort.Search, but perhaps -1 would be better?
 // TODO part too: use distance func to share same routine w/ approx and haversine calcs?
-func Closest(g GeoPoints, pt Point, deltaKm float64) (int, float64) {
+func Closest[T Float](g GeoPoints[T], pt Point[T], deltaKm T) (int, T) {
 	// Do a binary search to find the "closest" match
 
 	// The point found is not guaranteed to actually be
@@ -265,7 +273,7 @@ func Closest(g GeoPoints, pt Point, deltaKm float64) (int, float64) {
 	// To minimize work done (calculating distance),
 	// calculate the furthest away directly by latidude only,
 	// as that is (effectively) invariant
-	minLat := pt.Lat - GeoType(deltaKm/DegreeToKilometer)
+	minLat := pt.Lat - (deltaKm / DegreeToKilometer)
 
 	best := x //g.Len()
 
@@ -283,8 +291,8 @@ func Closest(g GeoPoints, pt Point, deltaKm float64) (int, float64) {
 	debugf("first hit for %v: %v -- %6d/%6d (%f)", pt, this, x, g.Len(), dist)
 
 	lonKmPerDegree := LookupLonKmPerLat(float64(pt.Lat)) //LookupLonKmPerLatInt(int(pt.Lat))
-	deltaLon := GeoType(closest / lonKmPerDegree)
-	lonOutside := func(lon GeoType) bool {
+	deltaLon := (closest / T(lonKmPerDegree))
+	lonOutside := func(lon T) bool {
 		maxLon := pt.Lon + deltaLon
 		minLon := pt.Lon - deltaLon
 		return lon < minLon || lon > maxLon
@@ -305,8 +313,8 @@ func Closest(g GeoPoints, pt Point, deltaKm float64) (int, float64) {
 		if dist := pt.Approximately(this); dist < closest {
 			closest = dist
 			best = i
-			minLat = pt.Lat - GeoType(closest/DegreeToKilometer)
-			deltaLon = GeoType(closest / lonKmPerDegree)
+			minLat = pt.Lat - (closest / DegreeToKilometer)
+			deltaLon = (closest / T(lonKmPerDegree))
 			//debugf("(%d) MINLAT: %f", counter, minLat)
 		}
 	}
@@ -321,7 +329,7 @@ func Closest(g GeoPoints, pt Point, deltaKm float64) (int, float64) {
 	   and once we hit pass that lat we know nothing can be closer and we're
 	   done with that sweep.
 	*/
-	maxLat := pt.Lat + GeoType(closest/DegreeToKilometer)
+	maxLat := pt.Lat + (closest / DegreeToKilometer)
 	for i := x + 1; i < g.Len(); i++ {
 		counter++
 		this = g.IndexPoint(i)
@@ -336,7 +344,7 @@ func Closest(g GeoPoints, pt Point, deltaKm float64) (int, float64) {
 		if dist := this.Approximately(pt); dist < closest {
 			best = i
 			closest = dist
-			maxLat = pt.Lat + GeoType(dist/DegreeToKilometer)
+			maxLat = pt.Lat + (dist / DegreeToKilometer)
 		}
 	}
 	//debugf("Examined %d records", counter)
@@ -344,29 +352,29 @@ func Closest(g GeoPoints, pt Point, deltaKm float64) (int, float64) {
 	return best, closest
 }
 
-func between(check, min, max GeoType) bool {
+func between[T Float](check, min, max T) bool {
 	return min <= check && check <= max
 }
 
-func Within(lat, lon, minLat, minLon, maxLat, maxLon GeoType) bool {
+func Within[T Float](lat, lon, minLat, minLon, maxLat, maxLon T) bool {
 	return between(lat, minLat, maxLat) && between(lon, minLon, maxLon)
 }
 
-func geos(ss ...string) ([]GeoType, error) {
-	ff := make([]GeoType, 0, len(ss))
+func geos[T Float](ss ...string) ([]T, error) {
+	ff := make([]T, 0, len(ss))
 	for i, s := range ss {
 		f, err := strconv.ParseFloat(s, 64)
 		if err != nil {
 			return nil, fmt.Errorf("(%d/%d): %q ain't a number: %w", i, len(ss), s, err)
 		}
-		ff = append(ff, GeoType(f))
+		ff = append(ff, T(f))
 	}
 	return ff, nil
 }
 
 const badPrefix = `bad coordinates --`
 
-func coordCheck(coord ...GeoType) error {
+func coordCheck[T Float](coord ...T) error {
 	if len(coord) < 4 {
 		return fmt.Errorf("requires 4 coordinates")
 	}
@@ -409,28 +417,28 @@ func coordCheck(coord ...GeoType) error {
 	return nil
 }
 
-func QueryCoords(s string) (Pair, error) {
+func QueryCoords[T Float](s string) (Pair[T], error) {
 	parts := strings.Split(s, ",")
 	if len(parts) < 2 {
 		parts = strings.Split(s, "/")
 		if len(parts) < 2 {
-			return Pair{}, ErrInvalidCoordinates
+			return Pair[T]{}, ErrInvalidCoordinates
 		}
 	}
-	lat, err := strconv.ParseFloat(parts[0], 32)
+	lat, err := strconv.ParseFloat(parts[0], 64)
 	if err != nil {
-		return Pair{}, fmt.Errorf("invalid latitude %q -- %w", parts[0], ErrInvalidCoordinates)
+		return Pair[T]{}, fmt.Errorf("invalid latitude %q -- %w", parts[0], ErrInvalidCoordinates)
 	}
-	lon, err := strconv.ParseFloat(parts[1], 32)
+	lon, err := strconv.ParseFloat(parts[1], 64)
 	if err != nil {
-		return Pair{}, fmt.Errorf("invalid longitude %q -- %w", parts[0], ErrInvalidCoordinates)
+		return Pair[T]{}, fmt.Errorf("invalid longitude %q -- %w", parts[0], ErrInvalidCoordinates)
 	}
-	return Pair{lat, lon}, nil
+	return Pair[T]{T(lat), T(lon)}, nil
 }
 
-func QueryPoint(s string) (Point, error) {
-	pt, err := QueryCoords(s)
-	return Point{GeoType(pt[0]), GeoType(pt[1])}, err
+func QueryPoint[T Float](s string) (Point[T], error) {
+	pt, err := QueryCoords[T](s)
+	return Point[T]{T(pt[0]), T(pt[1])}, err
 }
 
 // Bestest searches for a matching point within the distance (in Km)
@@ -439,11 +447,12 @@ func QueryPoint(s string) (Point, error) {
 // If nothing is found, it returns the Len() of the points list and -1 distance
 //
 // NOTE: this is an adaptation of Bestest, but distances are approximated to
-//       minimize computational load
+//
+//	minimize computational load
 //
 // TODO: the len return is in line w/ Go sort.Search, but perhaps -1 would be better?
 // TODO part too: use distance func to share same routine w/ approx and haversine calcs?
-func Bestest(g GeoPoints, pt Point, deltaKm float64) (int, float64) {
+func Bestest[T Float](g GeoPoints[T], pt Point[T], deltaKm T) (int, T) {
 	// Do a binary search to find the "closest" match
 
 	// The point found is not guaranteed to actually be
@@ -479,7 +488,7 @@ func Bestest(g GeoPoints, pt Point, deltaKm float64) (int, float64) {
 	// To minimize work done (calculating distance),
 	// calculate the furthest away directly by latidude only,
 	// as that is (effectively) invariant
-	minLat := pt.Lat - GeoType(deltaKm/DegreeToKilometer)
+	minLat := pt.Lat - T(deltaKm/DegreeToKilometer)
 
 	best := g.Len()
 
@@ -494,6 +503,7 @@ func Bestest(g GeoPoints, pt Point, deltaKm float64) (int, float64) {
 	this := g.IndexPoint(x)
 	dist := this.Distance(pt)
 	debugf("first hit: %6d/%6d (%f)", x, g.Len(), dist)
+	// if c := T(closest); c < dist {
 	if dist < closest {
 		closest = dist
 		best = x
@@ -507,8 +517,8 @@ func Bestest(g GeoPoints, pt Point, deltaKm float64) (int, float64) {
 		10 km / 100km/degree = 0.1 degree delta lon
 	*/
 	lonKmPerDegree := LonKilos(float64(pt.Lat)) //LookupLonKmPerLatInt(int(pt.Lat))
-	deltaLon := GeoType(closest / lonKmPerDegree)
-	lonOutside := func(lon GeoType) bool {
+	deltaLon := T(closest / T(lonKmPerDegree))
+	lonOutside := func(lon T) bool {
 		maxLon := pt.Lon + deltaLon
 		minLon := pt.Lon - deltaLon
 		return lon < minLon || lon > maxLon
@@ -528,8 +538,8 @@ func Bestest(g GeoPoints, pt Point, deltaKm float64) (int, float64) {
 		if dist := pt.Distance(this); dist < closest {
 			closest = dist
 			best = i
-			minLat = pt.Lat - GeoType(closest/DegreeToKilometer)
-			deltaLon = GeoType(closest / lonKmPerDegree)
+			minLat = pt.Lat - T(closest/DegreeToKilometer)
+			deltaLon = T(closest / T(lonKmPerDegree))
 			debugf("(%d) MINLAT: %f", counter, minLat)
 		}
 	}
@@ -544,7 +554,7 @@ func Bestest(g GeoPoints, pt Point, deltaKm float64) (int, float64) {
 	   and once we hit pass that lat we know nothing can be closer and we're
 	   done with that sweep.
 	*/
-	maxLat := pt.Lat + GeoType(closest/DegreeToKilometer)
+	maxLat := pt.Lat + T(closest/DegreeToKilometer)
 	for i := x + 1; i < g.Len(); i++ {
 		counter++
 		this = g.IndexPoint(i)
@@ -558,7 +568,7 @@ func Bestest(g GeoPoints, pt Point, deltaKm float64) (int, float64) {
 		if dist := this.Distance(pt); dist < closest {
 			best = i
 			closest = dist
-			maxLat = pt.Lat + GeoType(dist/DegreeToKilometer)
+			maxLat = pt.Lat + T(dist/DegreeToKilometer)
 		}
 	}
 	debugf("Examined %d records", counter)
@@ -566,33 +576,34 @@ func Bestest(g GeoPoints, pt Point, deltaKm float64) (int, float64) {
 	return best, closest
 }
 
-func ToGeoType(value interface{}) (GeoType, error) {
-	switch value := value.(type) {
-	case float32:
-		return GeoType(value), nil
-	case float64:
-		return GeoType(value), nil
-	case int:
-		return GeoType(value), nil
-	case int32:
-		return GeoType(value), nil
-	case int64:
-		return GeoType(value), nil
-	case string:
-		f, err := strconv.ParseFloat(value, 32)
-		return GeoType(f), err
+/*
+	func ToGeoType(value interface{}) (GeoType, error) {
+		switch value := value.(type) {
+		case float32:
+			return GeoType(value), nil
+		case float64:
+			return GeoType(value), nil
+		case int:
+			return GeoType(value), nil
+		case int32:
+			return GeoType(value), nil
+		case int64:
+			return GeoType(value), nil
+		case string:
+			f, err := strconv.ParseFloat(value, 32)
+			return GeoType(f), err
+		}
+		return 0, fmt.Errorf("%v is un unsupported type: %T", value, value)
 	}
-	return 0, fmt.Errorf("%v is un unsupported type: %T", value, value)
-}
 
-func DecodePoint(buf []byte) Point {
-	Lat := GeoType(math.Float32frombits(binary.LittleEndian.Uint32(buf)))
-	Lon := GeoType(math.Float32frombits(binary.LittleEndian.Uint32(buf[4:])))
-	return Point{Lat, Lon}
-}
-
-func DecodePair(buf []byte) Pair {
+	func DecodePoint(buf []byte) Point {
+		Lat := GeoType(math.Float32frombits(binary.LittleEndian.Uint32(buf)))
+		Lon := GeoType(math.Float32frombits(binary.LittleEndian.Uint32(buf[4:])))
+		return Point{Lat, Lon}
+	}
+*/
+func DecodePair(buf []byte) Pair[float64] {
 	Lat := math.Float64frombits(binary.LittleEndian.Uint64(buf))
 	Lon := math.Float64frombits(binary.LittleEndian.Uint64(buf[8:]))
-	return Pair{Lat, Lon}
+	return Pair[float64]{Lat, Lon}
 }

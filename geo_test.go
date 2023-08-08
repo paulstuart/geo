@@ -42,7 +42,7 @@ const (
 )
 
 func TestGeoTypeAccuracy(t *testing.T) {
-	roundTrip := float64(GeoType(AlaLat))
+	roundTrip := float64(AlaLat)
 	// returns diff of -0.000002
 	// which is ~ 0.22m
 	delta := AlaLat - roundTrip
@@ -92,7 +92,7 @@ func TestAreaInRange64(t *testing.T) {
 		lat = AlaLat
 		lon = AlaLon
 	)
-	pt := Pair{lat, lon}
+	pt := Pair[float64]{lat, lon}
 	const (
 		distance    = 5.0
 		diffAllowed = 0.0001
@@ -107,21 +107,21 @@ func TestAreaInRange64(t *testing.T) {
 	assert.LessOrEqual(t, float64(diffAllowed), float64(distance-dLon))
 }
 
-type testPoints []Point
+type testPoints[T Float] []Point[T]
 
-func (t testPoints) IndexPoint(i int) Point {
+func (t testPoints[T]) IndexPoint(i int) Point[T] {
 	return t[i]
 }
 
-func (t testPoints) Len() int {
+func (t testPoints[T]) Len() int {
 	return len(t)
 }
 
-func (t testPoints) Less(i, j int) bool {
+func (t testPoints[T]) Less(i, j int) bool {
 	return t[i].Less(t[j])
 }
 
-func (t testPoints) Swap(i, j int) {
+func (t testPoints[T]) Swap(i, j int) {
 	t[i], t[j] = t[j], t[i]
 }
 
@@ -131,19 +131,19 @@ type Helper interface {
 }
 */
 
-func searchSample(t Helper, include bool) (Point, GeoPoints) {
+func searchSample[T Float](t Helper, include bool) (Point[T], GeoPoints[T]) {
 	t.Helper()
-	xLat := GeoType(AlaLat)
-	xLon := GeoType(AlaLon)
-	center := Point{xLat, xLon}
-	var points testPoints
-	for lat := GeoType(0.001); lat < 1.0; lat += 0.005 {
-		for lon := GeoType(0.0001); lat < 1.0; lat += 0.0001 {
+	xLat := T(AlaLat)
+	xLon := T(AlaLon)
+	center := Point[T]{xLat, xLon}
+	var points testPoints[T]
+	for lat := T(0.001); lat < 1.0; lat += 0.005 {
+		for lon := T(0.0001); lat < 1.0; lat += 0.0001 {
 			points = append(points,
-				Point{xLat + lat, xLon + lon},
-				Point{xLat - lat, xLon + lon},
-				Point{xLat + lat, xLon - lon},
-				Point{xLat - lat, xLon - lon},
+				Point[T]{xLat + lat, xLon + lon},
+				Point[T]{xLat - lat, xLon + lon},
+				Point[T]{xLat + lat, xLon - lon},
+				Point[T]{xLat - lat, xLon - lon},
 			)
 		}
 	}
@@ -155,7 +155,7 @@ func searchSample(t Helper, include bool) (Point, GeoPoints) {
 }
 
 func TestClosest(t *testing.T) {
-	pt, list := searchSample(t, false)
+	pt, list := searchSample[float64](t, false)
 	const deltaKm = 0.1
 	now := time.Now()
 	i, dist := Closest(list, pt, deltaKm)
@@ -167,7 +167,7 @@ func TestClosest(t *testing.T) {
 }
 
 func TestBestest(t *testing.T) {
-	pt, list := searchSample(t, false)
+	pt, list := searchSample[float64](t, false)
 	const deltaKm = 0.1 //1.0 //0.1
 	now := time.Now()
 	i, dist := Bestest(list, pt, deltaKm)
@@ -175,7 +175,7 @@ func TestBestest(t *testing.T) {
 }
 
 func BenchmarkClosest(b *testing.B) {
-	pt, list := searchSample(b, false)
+	pt, list := searchSample[float64](b, false)
 	const deltaKm = 0.1
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -184,7 +184,7 @@ func BenchmarkClosest(b *testing.B) {
 }
 
 func BenchmarkBestest(b *testing.B) {
-	pt, list := searchSample(b, false)
+	pt, list := searchSample[float64](b, false)
 	const deltaKm = 0.1
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -228,10 +228,10 @@ func TestAccuracyPart2(t *testing.T) {
 		pt3Lat, pt3Lon = 37.7, -122.2
 		pt4Lat, pt4Lon = 37.8, -122.3
 	)
-	pt1 := GeoPoint(pt1Lat, pt1Lon)
-	pt2 := GeoPoint(pt2Lat, pt2Lon)
-	pt3 := GeoPoint(pt3Lat, pt3Lon)
-	pt4 := GeoPoint(pt4Lat, pt4Lon)
+	pt1 := GeoPoint[float64](pt1Lat, pt1Lon)
+	pt2 := GeoPoint[float64](pt2Lat, pt2Lon)
+	pt3 := GeoPoint[float64](pt3Lat, pt3Lon)
+	pt4 := GeoPoint[float64](pt4Lat, pt4Lon)
 	real := pt1.Distance(pt2)
 	fake := pt1.Approximately(pt2)
 	off := (math.Abs(fake-real) / real) * 100.0
@@ -342,23 +342,23 @@ func BenchmarkApproximateDistance(b *testing.B) {
 }
 */
 
-type HeatData struct {
+type HeatData[T Float] struct {
 	Lat, Lon float64
 	Index    int
 }
 
-type Heated []HeatData
+type Heated[T Float] []HeatData[T]
 
-func (h Heated) Len() int {
+func (h Heated[T]) Len() int {
 	return len(h)
 }
 
-func (h Heated) IndexPoint(i int) Point {
+func (h Heated[T]) IndexPoint(i int) Point[T] {
 	v := h[i]
-	return GeoPoint(v.Lat, v.Lon)
+	return GeoPoint[T](v.Lat, v.Lon)
 }
 
-func (h *HeatData) Import(ss []string) error {
+func (h *HeatData[T]) Import(ss []string) error {
 	lat, err := strconv.ParseFloat(ss[0], 64)
 	if err != nil {
 		return fmt.Errorf("bad lat: %w", err)
@@ -380,7 +380,7 @@ func (h *HeatData) Import(ss []string) error {
 const heatFile = "testdata/heat.csv.gz"
 
 func TestHeated(t *testing.T) {
-	heated, err := loadHeated(heatFile)
+	heated, err := loadHeated[float64](heatFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -397,8 +397,8 @@ type Helper interface {
 	Fatal(...interface{})
 }
 
-func testHeat(t Helper) Heated {
-	heated, err := loadHeated(heatFile)
+func testHeat[T Float](t Helper) Heated[T] {
+	heated, err := loadHeated[T](heatFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -406,51 +406,52 @@ func testHeat(t Helper) Heated {
 }
 
 func TestClosestHeat(t *testing.T) {
-	heated := testHeat(t)
-	pt := GeoPoint(AlaLat, AlaLon)
+	heated := testHeat[float64](t)
+	pt := GeoPoint[float64](AlaLat, AlaLon)
 	const within = 10.0
-	idx, dist := Closest(heated, pt, within)
+	idx, dist := Closest[float64](heated, pt, within)
 	h := heated[idx]
 	t.Logf("%d/%d:(%f) %v", idx, len(heated), dist, h)
 }
 
 func TestBestestHeat(t *testing.T) {
-	heated := testHeat(t)
-	pt := GeoPoint(AlaLat, AlaLon)
+	heated := testHeat[float64](t)
+	pt := GeoPoint[float64](AlaLat, AlaLon)
 	const within = 10.0
-	idx, dist := Bestest(heated, pt, within)
+	idx, dist := Bestest[float64](heated, pt, within)
 	h := heated[idx]
 	t.Logf("%d/%d:(%f) %v", idx, len(heated), dist, h)
 }
 
 func TestClosestAllocs(t *testing.T) {
-	heated := testHeat(t)
-	pt := GeoPoint(AlaLat, AlaLon)
+	heated := testHeat[float64](t)
+	pt := GeoPoint[float64](AlaLat, AlaLon)
 	const within = 10.0
 	allocs := testing.AllocsPerRun(100, func() {
-		Closest(heated, pt, within)
+		Closest[float64](heated, pt, within)
 	})
 	t.Logf("%.0f", allocs)
 }
 
 func TestNearest(t *testing.T) {
-	pt := GeoPoint(AlaLat, AlaLon)
+	pt := GeoPoint[float64](AlaLat, AlaLon)
 	info, err := Nearest(heatFile, pt, true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Log(info)
 }
-func loadHeated(filename string) (Heated, error) {
+
+func loadHeated[T Float](filename string) (Heated[T], error) {
 	count := 0
-	var heated Heated
+	var heated Heated[T]
 	fn := func(ss []string) error {
 		count++
 		if count == 1 {
 			return nil
 		}
 
-		var h HeatData
+		var h HeatData[T]
 		if err := (&h).Import(ss); err != nil {
 			return err
 		}

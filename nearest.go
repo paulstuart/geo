@@ -47,14 +47,14 @@ func LinePoint(s string, latLon bool) (Point, error) {
 
 // Nearest scans a csv file with lon,lat coordinates
 // and returns the line that is closest to the given point
-func Nearest(filename string, pt Point, latLon bool) (LineInfo, error) {
+func Nearest[T Float](filename string, pt Point[T], latLon bool) (LineInfo, error) {
 	info := LineInfo{
 		Distance: math.MaxFloat64,
 	}
 	var idx int
 	fn := func(s string) error {
 		idx++
-		there, err := QueryPoint(s)
+		there, err := QueryPoint[T](s)
 		if err != nil {
 			return nil // should we log it?
 		}
@@ -62,8 +62,8 @@ func Nearest(filename string, pt Point, latLon bool) (LineInfo, error) {
 			pt.Lat, pt.Lon = pt.Lon, pt.Lat
 		}
 		dist := pt.Distance(there)
-		if dist < info.Distance {
-			info.Distance = dist
+		if dist < T(info.Distance) {
+			info.Distance = float64(dist)
 			info.Line = s
 			info.Index = idx
 		}
